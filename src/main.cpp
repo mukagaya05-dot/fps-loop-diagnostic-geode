@@ -1,11 +1,11 @@
 #include <Geode/Geode.hpp>
-#include <Geode/modify/CCDisplayLinkDirector.hpp>
+#include <Geode/modify/CCDirector.hpp>
 #include <chrono>
 
 using namespace geode::prelude;
 
-class $modify(FPSLoopDiagnostic, CCDisplayLinkDirector) {
-    void mainLoop() {
+class $modify(FPSRenderDiagnostic, CCDirector) {
+    void drawScene() {
         static uint64_t frames = 0;
         static auto start = std::chrono::steady_clock::now();
 
@@ -17,11 +17,12 @@ class $modify(FPSLoopDiagnostic, CCDisplayLinkDirector) {
         ).count();
 
         if (elapsed >= 1000) {
-            log::info("MAINLOOP CALLS: {}", frames);
+            log::info("RENDER CALLS: {}", frames);
+
             frames = 0;
             start = now;
         }
 
-        CCDisplayLinkDirector::mainLoop();
+        CCDirector::drawScene();
     }
 };
