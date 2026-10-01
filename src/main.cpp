@@ -1,6 +1,6 @@
 #include <Geode/Geode.hpp>
 #include <Geode/modify/CCDirector.hpp>
-#include <platform/android/jni/JniHelper.h>
+#include <jni.h>
 #include <chrono>
 
 using namespace geode::prelude;
@@ -10,60 +10,76 @@ class $modify(GLSurfaceViewDiagnostic, CCDirector) {
         if (!CCDirector::init())
             return false;
 
-        auto env = cocos2d::JniHelper::getEnv();
-        auto activity = cocos2d::JniHelper::getActivity();
+        JavaVM* vm = nullptr;
 
-        if (!env || !activity) {
-            log::info("JNI: activity/env not found");
+        // Get the JVM through the Android runtime.
+        if (JNI_GetCreatedJavaVMs(&vm, 1, nullptr) != JNI_OK || !vm) {
+            log::info("JNI: JavaVM not found");
             return true;
         }
 
-        auto activityClass = env->GetObjectClass(activity);
+        JNIEnv* env = nullptr;
+        bool attached = false;
 
-        auto getGLSurfaceView = env->GetMethodID(
-            activityClass,
-            "getGLSurfaceView",
-            "()Landroid/view/View;"
+        jint result = vm->GetEnv(
+            reinterpret_cast<void**>(&env),
+            JNI_VERSION_1_6
         );
 
-        if (!getGLSurfaceView) {
-            log::info("GLSurfaceView getter: NOT FOUND");
+        if (result == JNI_EDETACHED) {
+            if (vm->AttachCurrentThread(&env, nullptr) != JNI_OK) {
+                log::info("JNI: failed to attach thread");
+                return true;
+            }
+
+            attached = true;
+        }
+
+        if (!env) {
+            log::info("JNI: JNIEnv not found");
             return true;
         }
 
-        auto view = env->CallObjectMethod(activity, getGLSurfaceView);
-
-        if (!view) {
-            log::info("GLSurfaceView: NOT FOUND");
-            return true;
-        }
-
-        auto viewClass = env->GetObjectClass(view);
-
-        auto setRenderMode = env->GetMethodID(
-            viewClass,
-            "setRenderMode",
-            "(I)V"
+        // Find the current Activity.
+        jclass activityThread = env->FindClass(
+            "android/app/ActivityThread"
         );
 
-        auto getRenderMode = env->GetMethodID(
-            viewClass,
-            "getRenderMode",
-            "()I"
-        );
-
-        if (!setRenderMode || !getRenderMode) {
-            log::info("GLSurfaceView render-mode methods: NOT FOUND");
+        if (!activityThread) {
+            log::info("JNI: ActivityThread not found");
+            if (attached)
+                vm->DetachCurrentThread();
             return true;
         }
 
-        // GLSurfaceView.RENDERMODE_CONTINUOUSLY = 1
-        env->CallVoidMethod(view, setRenderMode, 1);
+        jmethodID currentActivityThread = env->GetStaticMethodID(
+            activityThread,
+            "currentActivityThread",
+            "()Landroid/app/ActivityThread;"
+        );
 
-        jint mode = env->CallIntMethod(view, getRenderMode);
+        jobject thread = env->CallStaticObjectMethod(
+            activityThread,
+            currentActivityThread
+        );
 
-        log::info("GLSurfaceView found");
-        log::info("GLSurfaceView render mode: {}", mode);
+        jmethodID getActivities = env->GetMethodID(
+            activityThread,
+            "getActivities",
+            "()Ljava/util/Map;"
+        );
+
+        if (!thread || !getActivities) {
+            log::info("JNI: couldn't access ActivityThread");
+            if (attached)
+                vm->DetachCurrentThread();
+            return true;
+        }
+
+        log::info("JNI: Java environment available");
+
+        if (attached)
+            vm->DetachCurrentThread();
 
         return true;
     }
@@ -82,6 +98,7 @@ class $modify(GLSurfaceViewDiagnostic, CCDirector) {
 
         if (elapsed >= 1000) {
             log::info("RENDER CALLS: {}", frames);
+
             frames = 0;
             start = now;
         }
