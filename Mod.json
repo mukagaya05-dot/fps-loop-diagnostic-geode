@@ -1,0 +1,15 @@
+{
+  "geode": "5.10.1",
+  "gd": {
+    "android": "2.2081"
+  },
+  "id": "zaid.fps-loop-diagnostic",
+  "name": "FPS Loop Diagnostic",
+  "version": "v0.1.0",
+  "developer": "Zaid",
+  "description": "Measures Geometry Dash main loop calls per second.",
+  "tags": [
+    "performance",
+    "debug"
+  ]
+}
