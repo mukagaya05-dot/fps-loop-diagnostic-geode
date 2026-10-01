@@ -1,28 +1,18 @@
 #include <Geode/Geode.hpp>
 #include <Geode/modify/CCDirector.hpp>
-#include <chrono>
 
 using namespace geode::prelude;
 
-class $modify(FPSRenderDiagnostic, CCDirector) {
-    void drawScene() {
-        static uint64_t frames = 0;
-        static auto start = std::chrono::steady_clock::now();
+class $modify(AnimationIntervalTest, CCDirector) {
+    bool init() {
+        if (!CCDirector::init())
+            return false;
 
-        frames++;
+        // Request a 240 FPS animation interval.
+        this->setAnimationInterval(1.0 / 240.0);
 
-        auto now = std::chrono::steady_clock::now();
-        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-            now - start
-        ).count();
+        log::info("Animation interval set to 1/240");
 
-        if (elapsed >= 1000) {
-            log::info("RENDER CALLS: {}", frames);
-
-            frames = 0;
-            start = now;
-        }
-
-        CCDirector::drawScene();
+        return true;
     }
 };
